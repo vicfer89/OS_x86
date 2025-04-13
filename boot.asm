@@ -15,6 +15,20 @@ times 33 db 0 ; Bloque de parámetros de la BIOS
 start:
     jmp 0x7c0:step2     ; Hace que el segmento de código sera el 0x7c00 (0x7c0 * 16 + 0)
 
+handle_zero:        ; Manejador para interrupción 0
+    mov ah, 0eh
+    mov al, 'A'
+    mov bx, 0x00
+    int 0x10
+    iret            ; retorno de interrupción
+
+handle_one:
+    mov ah, 0eh
+    mov al, 'V'
+    mov bx, 0x00
+    int 0x10
+    iret            ; retorno de interrupción
+
 step2:
     cli             ; Deshabilitamos interrupciones    
     mov ax, 0x7c0   ; Ponemos en 'ax' el origen de datos que queremos (0x7c0)
@@ -24,6 +38,17 @@ step2:
     mov ss, ax      ; Ponemos el segmento del stack 'ss' a cero.                      
     mov sp, 0x7c00  ; Situamos el puntero de Stack en la dirección de origen de bios
     sti             ; Habilitamos interrupciones
+
+; Manejador para itnerrupción 0
+    mov word[ss:0x00], handle_zero  ; declaramos 'handle_zero' como función para interrupción cero poniendola en el segmento de stack
+    mov word[ss:0x02], 0x7c0        ; Segmento de memoria 
+
+; Manejador para interrupción 1
+    mov word[ss:0x04], handle_one   ; Offset de memoria para interrupción 1
+    mov word[ss:0x06], 0x7c0        ; Segmento de memoria
+
+    int 1 ; BORRAR
+
     mov si, message ; Mueve la dirección de message al registro 'si'
     call print
     jmp $           ; Saltamos a la misma instrucción
@@ -45,6 +70,7 @@ print_char:
     ret             ; Retorno de subrutina
 
 message: db 'Hola mundo!', 0 ; Mensaje a representar en etiqueta
+message_int_zero: db 'Esto es la interrupción cero', 0 ; Mensaje para interrupción cero
 
 ; Ponemos la BOOT signature para el fichero
 times 510 - ($ - $$) db 0 ; Llenamos 510 bytes de ceros hasta los últimos 2 bytes, que serán la firma
