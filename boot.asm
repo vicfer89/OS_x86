@@ -2,12 +2,20 @@
 ORG 0      ; Dirección de origen de datos, tomado como offset para segmentos de datos
 BITS 16    ; Forzamos instrucciones a 16 bits (modo de arranque de bios)
 
+_start:    
+    jmp short start ; Saltamos a start
+    nop             ; Requerido por bloque de parámetros de BIOS
+
+times 33 db 0 ; Bloque de parámetros de la BIOS
+
 ; Para el cálculo del origen de datos tenemos que:
 ;   Segmento de origen: 0x7c00
 ;   Dirección:  Segmento * 16 + offset
 ;   En nuestro caso: 0x7c0 * 16 + ORG = 0x7c00 + 0 = 0x7c00
-jmp 0x7c0:start     ; Hace que el segmento de código sera el 0x7c00 (0x7c0 * 16 + 0)
 start:
+    jmp 0x7c0:step2     ; Hace que el segmento de código sera el 0x7c00 (0x7c0 * 16 + 0)
+
+step2:
     cli             ; Deshabilitamos interrupciones    
     mov ax, 0x7c0   ; Ponemos en 'ax' el origen de datos que queremos (0x7c0)
     mov ds, ax      ; ponemos el segmento de datos 'ds' en el valor de origen de bios (ds = 0x7c0 * 16 + 0 = 0x7c00)
