@@ -5,3 +5,8 @@ all:
 
 test: boot.bin
 	qemu-system-x86_64 -hda ./boot.bin
+
+iso: boot.bin
+	cp ./boot.bin ./os.bin
+	truncate os.bin -s 1200k
+	mkisofs -o os.iso -b os.bin ./
