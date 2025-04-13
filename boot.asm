@@ -1,8 +1,21 @@
 ; Fichero de ensamblador para bootloader y proceso de boot
-ORG 0x7c00 ; Dirección definida por BIOS para carga de arranque
+ORG 0      ; Dirección de origen de datos, tomado como offset para segmentos de datos
 BITS 16    ; Forzamos instrucciones a 16 bits (modo de arranque de bios)
 
+; Para el cálculo del origen de datos tenemos que:
+;   Segmento de origen: 0x7c00
+;   Dirección:  Segmento * 16 + offset
+;   En nuestro caso: 0x7c0 * 16 + ORG = 0x7c00 + 0 = 0x7c00
+jmp 0x7c0:start     ; Hace que el segmento de código sera el 0x7c00 (0x7c0 * 16 + 0)
 start:
+    cli             ; Deshabilitamos interrupciones    
+    mov ax, 0x7c0   ; Ponemos en 'ax' el origen de datos que queremos (0x7c0)
+    mov ds, ax      ; ponemos el segmento de datos 'ds' en el valor de origen de bios (ds = 0x7c0 * 16 + 0 = 0x7c00)
+    mov es, ax      ; Ponemos el segmento extra 'ex' en el valor de origen de bios    (es = 0x7c0 * 16 + 0 = 0x7c00)
+    mov ax, 0x00 
+    mov ss, ax      ; Ponemos el segmento del stack 'ss' a cero.                      
+    mov sp, 0x7c00  ; Situamos el puntero de Stack en la dirección de origen de bios
+    sti             ; Habilitamos interrupciones
     mov si, message ; Mueve la dirección de message al registro 'si'
     call print
     jmp $           ; Saltamos a la misma instrucción
