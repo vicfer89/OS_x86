@@ -15,20 +15,6 @@ times 33 db 0 ; Bloque de parámetros de la BIOS
 start:
     jmp 0x7c0:step2     ; Hace que el segmento de código sera el 0x7c00 (0x7c0 * 16 + 0)
 
-handle_zero:        ; Manejador para interrupción 0
-    mov ah, 0eh
-    mov al, 'A'
-    mov bx, 0x00
-    int 0x10
-    iret            ; retorno de interrupción
-
-handle_one:
-    mov ah, 0eh
-    mov al, 'V'
-    mov bx, 0x00
-    int 0x10
-    iret            ; retorno de interrupción
-
 step2:
     cli             ; Deshabilitamos interrupciones    
     mov ax, 0x7c0   ; Ponemos en 'ax' el origen de datos que queremos (0x7c0)
@@ -39,17 +25,23 @@ step2:
     mov sp, 0x7c00  ; Situamos el puntero de Stack en la dirección de origen de bios
     sti             ; Habilitamos interrupciones
 
-; Manejador para itnerrupción 0
-    mov word[ss:0x00], handle_zero  ; declaramos 'handle_zero' como función para interrupción cero poniendola en el segmento de stack
-    mov word[ss:0x02], 0x7c0        ; Segmento de memoria 
+; Vamos a cargar un bloque de datos a buffer, etiqueta definida abajo.
+    mov ah, 2       ; Comando de lectura de sector
+    mov al, 1       ; Número de sectores a leer (1 sector)
+    mov ch, 0       ; Número de cilindro (cilindro 0)
+    mov cl, 2       ; Número de sector (sector 2)
+    mov dh, 0       ; Número de cabeza (cabeza 0)
+    mov bx, buffer  ; Puntero a dirección de destino
+    int 0x13        ; Salto de la interrupción
+    jc error        ; Si la bandera de Carry está a 1, saltamos a error
 
-; Manejador para interrupción 1
-    mov word[ss:0x04], handle_one   ; Offset de memoria para interrupción 1
-    mov word[ss:0x06], 0x7c0        ; Segmento de memoria
+    mov si, buffer  ; Ponemos caracteres del buffer en 'si' una vez leidos
+    call print
 
-    int 1 ; BORRAR
+    jmp $
 
-    mov si, message ; Mueve la dirección de message al registro 'si'
+error:
+    mov si, error_message
     call print
     jmp $           ; Saltamos a la misma instrucción
 
@@ -69,9 +61,10 @@ print_char:
     int 0x10        ; Interrupción de BIOS para pantalla
     ret             ; Retorno de subrutina
 
-message: db 'Hola mundo!', 0 ; Mensaje a representar en etiqueta
-message_int_zero: db 'Esto es la interrupción cero', 0 ; Mensaje para interrupción cero
+error_message: db 'Fallo en la carga del sector', 0
 
 ; Ponemos la BOOT signature para el fichero
 times 510 - ($ - $$) db 0 ; Llenamos 510 bytes de ceros hasta los últimos 2 bytes, que serán la firma
 dw 0xAA55                 ; NOTA: Cambiados al ser Little Endian
+
+buffer:             ; Sector para guardar datos leidos de disco (pasado sector de arranque)
