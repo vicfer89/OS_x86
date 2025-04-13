@@ -1,6 +1,14 @@
 ; Fichero de ensamblador para bootloader y proceso de boot
-ORG 0      ; Dirección de origen de datos, tomado como offset para segmentos de datos
-BITS 16    ; Forzamos instrucciones a 16 bits (modo de arranque de bios)
+; Por defecto, la BIOS al encontrar la firma (0x55AA) al final del primer bloque de disco, copiará ese primer bloque en la dirección
+; 0x7c00 de memoria, comenzando a ejecutarla a partir de ahí.
+
+;   Al usar las tablas de GDT, podemos poner el origen de nuevo a 0x7c00, ya que ahora configuraremos la memoria virtual en base a estas tablas, de forma que el acceso
+; a memoria vendrá definido por ellas.
+ORG 0x7c00      ; Dirección de origen de datos, tomado como offset para segmentos de datos
+BITS 16         ; Forzamos instrucciones a 16 bits (modo de arranque de bios)
+
+CODE_SEG equ gdt_code - gdt_start
+DATA_SEG equ gdt_data - gdt_start
 
 _start:    
     jmp short start ; Saltamos a start
@@ -8,63 +16,79 @@ _start:
 
 times 33 db 0 ; Bloque de parámetros de la BIOS
 
-; Para el cálculo del origen de datos tenemos que:
-;   Segmento de origen: 0x7c00
-;   Dirección:  Segmento * 16 + offset
-;   En nuestro caso: 0x7c0 * 16 + ORG = 0x7c00 + 0 = 0x7c00
 start:
-    jmp 0x7c0:step2     ; Hace que el segmento de código sera el 0x7c00 (0x7c0 * 16 + 0)
+    jmp 0x0:step2 
 
 step2:
     cli             ; Deshabilitamos interrupciones    
-    mov ax, 0x7c0   ; Ponemos en 'ax' el origen de datos que queremos (0x7c0)
-    mov ds, ax      ; ponemos el segmento de datos 'ds' en el valor de origen de bios (ds = 0x7c0 * 16 + 0 = 0x7c00)
-    mov es, ax      ; Ponemos el segmento extra 'ex' en el valor de origen de bios    (es = 0x7c0 * 16 + 0 = 0x7c00)
+    mov ax, 0x00    
+    mov ds, ax      
+    mov es, ax      
     mov ax, 0x00 
-    mov ss, ax      ; Ponemos el segmento del stack 'ss' a cero.                      
-    mov sp, 0x7c00  ; Situamos el puntero de Stack en la dirección de origen de bios
+    mov ss, ax                        
+    mov sp, 0x7c00  
     sti             ; Habilitamos interrupciones
 
-; Vamos a cargar un bloque de datos a buffer, etiqueta definida abajo.
-    mov ah, 2       ; Comando de lectura de sector
-    mov al, 1       ; Número de sectores a leer (1 sector)
-    mov ch, 0       ; Número de cilindro (cilindro 0)
-    mov cl, 2       ; Número de sector (sector 2)
-    mov dh, 0       ; Número de cabeza (cabeza 0)
-    mov bx, buffer  ; Puntero a dirección de destino
-    int 0x13        ; Salto de la interrupción
-    jc error        ; Si la bandera de Carry está a 1, saltamos a error
+.load_protected:
+    cli 
+    lgdt[gdt_descriptor] ; Carga el descriptor de GDT que hemos definido con el tamaño y la GDT
+; Activamos el uso de paginación:
+    mov eax, cr0
+    or eax, 0x1
+    mov cr0, eax
+    jmp CODE_SEG:load32 ; Saltamos a la parte de 32 bits, poniendo como offset gdt_data (definido en CODE_SEG)
 
-    mov si, buffer  ; Ponemos caracteres del buffer en 'si' una vez leidos
-    call print
+; GDT (Global Descriptor Table):
+; GDT es un registro de 64 bits:
+; bits 0 - 15   -> Limite 0:15
+; bits 16 - 31  -> Base 0:15
+; bits 32 - 39  -> Base 16:23
+; bits 40 - 47  -> Bits de acceso
+; bits 48 - 51  -> Limite 16:19
+; bits 52 - 55  -> Flags
+; bits 56 - 63  -> Base 24:31
 
+; offset 0x00
+gdt_start:    
+gdt_null:
+    dd 0 ; 4 bytes
+    dd 0 ; 4 bytes
+
+; offset 0x08
+gdt_code:           ; El registro 'cs' ha de apuntar aquí
+    dw 0xffff       ; (0  - 15) Límite del segmento 0:15
+    dw 0            ; (16 - 31) Base para el segmento 0:15
+    db 0            ; (32 - 39) Base para el segmento 16:23
+    db 0x9a         ; (40 - 47) Bits de acceso [0x9a = 1001.1010]
+    db 11001111b    ; (48 - 51) Limite del segmento 16:23 (1111) // (52 - 55) Flags (1100)
+    db 0            ; (52 - 55) Base 24:31
+; offset 0x10
+gdt_data:           ; Los registros 'ds', 'ss', 'es', 'fs', 'gs' han de apuntar aquí
+    dw 0xffff       ; (0  - 15) Límite del segmento 0:15
+    dw 0            ; (16 - 31) Base para el segmento 0:15
+    db 0            ; (32 - 39) Base para el segmento 16:23
+    db 0x92         ; (40 - 47) Bits de acceso [0x9a = 1001.1010]
+    db 11001111b    ; (48 - 51) Limite del segmento 16:23 (1111) // (52 - 55) Flags (1100)
+    db 0            ; (52 - 55) Base 24:31
+
+gdt_end:
+
+gdt_descriptor:
+    dw gdt_end - gdt_start - 1 ; Longitud de GDT
+    dd gdt_start               ; Dirección de origen de GDR
+
+[BITS 32] ; Todo el código a partir de aquí será de 32 bits
+load32:
+    mov ax, DATA_SEG
+    mov ds, ax          ; Segmento de datos
+    mov es, ax          ; Segmento extra
+    mov fs, ax          ; Segmento extra
+    mov gs, ax          ; Segmento extra
+    mov ss, ax          ; Segmento de Stack
+    mov ebp, 0x00200000 ; Puntero base para el stack
+    mov esp, ebp        ; Apuntamos el stack a su base
     jmp $
-
-error:
-    mov si, error_message
-    call print
-    jmp $           ; Saltamos a la misma instrucción
-
-print:
-    mov bx, 0
-.loop:
-    lodsb           ; Carga el carácter de 'si' en el registro AL e incrementa el puntero de 'si' en 1
-    cmp al, 0       ; Comparamos el valor de 'al' con 0
-    je .done        ; En caso de que sea 0, saltamos a .done (sub-etiqueta)
-    call print_char ; Imprimimos el carácter en al.
-    jmp .loop       ; Saltamos a .loop para la siguiente instrucción
-.done:
-    ret
-
-print_char:
-    mov ah, 0eh     ; Instrucción de tipo Teletype a Bios (Ver 1. en enlaces)    
-    int 0x10        ; Interrupción de BIOS para pantalla
-    ret             ; Retorno de subrutina
-
-error_message: db 'Fallo en la carga del sector', 0
 
 ; Ponemos la BOOT signature para el fichero
 times 510 - ($ - $$) db 0 ; Llenamos 510 bytes de ceros hasta los últimos 2 bytes, que serán la firma
 dw 0xAA55                 ; NOTA: Cambiados al ser Little Endian
-
-buffer:             ; Sector para guardar datos leidos de disco (pasado sector de arranque)
