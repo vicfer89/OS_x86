@@ -87,6 +87,12 @@ load32:
     mov ss, ax          ; Segmento de Stack
     mov ebp, 0x00200000 ; Puntero base para el stack
     mov esp, ebp        ; Apuntamos el stack a su base
+
+    ; Activamos línea A2
+    in al, 0x92   ; Leemos registro
+    or al, 2      ; Aplicamos la máscara
+    out 0x92, al  ; Escribimos registro
+
     jmp $
 
 ; Ponemos la BOOT signature para el fichero
