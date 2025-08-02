@@ -1,5 +1,6 @@
 [BITS 32] ; Todo el código a partir de aquí será de 32 bits
 global _start
+extern kernel_main
 
 CODE_SEG equ 0x08 ; Segmento para código
 DATA_SEG equ 0x10 ; Segmento para datos
@@ -18,6 +19,8 @@ _start:
     in al, 0x92   ; Leemos registro
     or al, 2      ; Aplicamos la máscara
     out 0x92, al  ; Escribimos registro
+
+    call kernel_main
 
     jmp $
 
