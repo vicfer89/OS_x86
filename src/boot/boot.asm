@@ -77,23 +77,73 @@ gdt_descriptor:
     dw gdt_end - gdt_start - 1 ; Longitud de GDT
     dd gdt_start               ; Dirección de origen de GDR
 
-[BITS 32] ; Todo el código a partir de aquí será de 32 bits
+
+[BITS 32]
 load32:
-    mov ax, DATA_SEG
-    mov ds, ax          ; Segmento de datos
-    mov es, ax          ; Segmento extra
-    mov fs, ax          ; Segmento extra
-    mov gs, ax          ; Segmento extra
-    mov ss, ax          ; Segmento de Stack
-    mov ebp, 0x00200000 ; Puntero base para el stack
-    mov esp, ebp        ; Apuntamos el stack a su base
+    mov eax, 1         ; Sector en el que comenzamos (sector 1, ya que el 0 está el bootloader)
+    mov ecx, 100       ; Número de sectores a cargar (cargamos 100 sectores, los definidos para el Kernel)
+    mov edi, 0x0100000 ; La dirección que queremos cargar (.=1M) como se definió en el Linker Script
+    call ata_lba_read  ; Carga los sectores del disco a memoria
+    jmp CODE_SEG:0x0100000 ; Saltamos a la dirección de código cargada
 
-    ; Activamos línea A2
-    in al, 0x92   ; Leemos registro
-    or al, 2      ; Aplicamos la máscara
-    out 0x92, al  ; Escribimos registro
+; Driver para lectura de datos ATA
+ata_lba_read:
+    mov ebx, eax,   ; Hacemos una copia de LBA
+    ; Enviamos los 8 bits superiores del LBA al controlador de disco duro
+    shr eax, 24     ; (32 - 24 = 8), eax contendrá los 8 bits superiores solo al desplazarlo a la derecha
+    or eax, 0xE0    ; Permite seleccionar el disco maestro
+    mov dx, 0x1F6   ; 0x1F6 es el puerto al que escribir
+    out dx, al      ; hacemos la operación de salida en el puerto dx del registro al
+    ; Finaliza el envio de los 8 bits superiores de LBA al controlador
+    ; Enviamos el número de sectores a leer
+    mov eax, ecx
+    mov dx, 0x1F2
+    out dx, al
+    ; Finalizamos el envío de los sectores a leer
 
-    jmp $
+    ; Enviamos el resto de bits del LBA
+    mov eax, ebx ; Restauramos el valor de LBA
+    mov dx, 0x1F3
+    out dx, al
+    ; Finalizamos el envío del rest ode bits del LBA
+
+    ; Enviamos más bits del LBA
+    mov dx, 0x1F4
+    mov eax, ebx ; Rstauramos la copia del LBA
+    shr eax, 8
+    out dx, al
+    ; Finalizamos el envío de más bits del LBA
+
+    ; Enviamos los 16 bits superiores del LBA
+    mov dx, 0x1F5
+    mov eax, ebx ; Restauramos la copia del LBA
+    shr eax, 16
+    out dx, al
+    ; Finalizamos el envío de los 16 bits superiores del LBA
+
+    mov dx, 0x1F7
+    mov al, 0x20
+    out dx, al
+
+; Leemos sectores en memoria
+.next_sector:
+    push ecx
+
+; Comprobamos si tenemos que leer
+.try_again:
+    mov dx, 0x1F7
+    in al, dx   ; Leemos el puerto 0x1F7 en al
+    test al, 8
+    jz .try_again
+
+; Necesitamos leer 256 palabras
+    mov ecx, 256
+    mov dx, 0x1F0
+    rep insw ; Lee el número de veces especificado en el registro ecx para ponerlo en la dirección definida en el registro edi
+    pop ecx
+    loop .next_sector
+    ; Final de la lectura de sectores en memoria
+    ret
 
 ; Ponemos la BOOT signature para el fichero
 times 510 - ($ - $$) db 0 ; Llenamos 510 bytes de ceros hasta los últimos 2 bytes, que serán la firma

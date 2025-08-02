@@ -15,6 +15,15 @@ Pasos a seguir:
 1. Truncamos el fichero a 1200k: ```truncate boot.bin -s 1200k```
 2. Generamos la iso con _mkisofs_: ```mkisofs -o os.iso -b boot.bin ./```
 
-## Ejecución en GDB para QUEMU:
+## Ejecución en GDB para QEMU:
 1. Lanzamos gdb en la consola ```gdb```
-2. En GDB, lanzamos en remoto QUEMU redirigiendo la salida: ```target remote | qemu-system-x86_64 -hda ./boot.bin -S -gdb stdio```
+2. En GDB, lanzamos en remoto QEMU redirigiendo la salida: ```target remote | qemu-system-x86_64 -hda ./boot.bin -S -gdb stdio```
+
+### Ejecución en GDB para sistema completo
+1. Lanzamos gdb en la consola ```gdb```, a partir de ahora todo estará en la consola de GDB
+2. Cargamos los simbolos de depuración ```add-symbol-file ../build/kernelfull.o 0x100000```
+3. Pulsamos ```y``` para leer los símbolos cuando se solicite
+4. Ponemos un breakpoint en el comienzo por medio de ```break _start```
+5. Lanzamos QEMU, redirigiendo la salida ```target remote | qemu-system-x86_64 -S -gdb stdio -hda ./os.bin```
+6. Podemos continuar la ejecución por medio de ```c```, lanzar el depurador de asm por medio de ```layout asm``` e ir instrucción a instrucción por medio de ```stepi```
+para comprobar que se ha podido lanzar de forma correcta.
