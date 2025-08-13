@@ -1,7 +1,17 @@
+/**
+ * @file kernel.c
+ * @author Vff
+ * @brief Fichero para kernel de prueba de OS
+ */
+
 #include "kernel.h"
+#include "idt.h"
 
 #include <stdint.h>
 #include <stddef.h>
+
+extern void problem();
+extern void call_int_nr();
 
 uint16_t* video_mem = 0;
 
@@ -76,5 +86,14 @@ void printk(const char* str)
 void kernel_main()
 {
     terminal_initalize();
-    printk("Hola mundo\nEsto es una prueba");
+    printk("Hola mundo\nEsto es una prueba\n");
+
+    // Inicializa la tabla de descriptor de interrupciones
+    idt_init();
+
+    // [TEST LECCION 12] - Inyecta un error definido en kernel.asm para probar la división por cero
+    //problem();
+
+    // [TEST LECCION 12] - Llamada a interrupción 0
+    //call_int_nr();
 }

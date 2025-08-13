@@ -1,5 +1,7 @@
 [BITS 32] ; Todo el código a partir de aquí será de 32 bits
 global _start
+global problem
+global call_int_nr
 extern kernel_main
 
 CODE_SEG equ 0x08 ; Segmento para código
@@ -23,5 +25,15 @@ _start:
     call kernel_main
 
     jmp $
+
+; Genera la interrupción cero por medio de division por cero
+problem:
+    mov eax, 0
+    div eax
+    ret
+
+; Llama a la interrupción 0
+call_int_nr:
+    int 0
 
 times 512 - ($ - $$) db 0 ; Alineamos el fichero a 512 bits para evitar problemas de alineamiento
