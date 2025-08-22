@@ -13,6 +13,10 @@ fi
 if [ ! -d "$BUILDIR" ]; then
   echo "$BUILDIR no existe, creando directorio..."
   mkdir $BUILDIR
+  #Creamos subdirectorios necesarios para la construcción
+  mkdir $BUILDIR/idt
+  mkdir $BUILDIR/io
+  mkdir $BUILDIR/memory
 fi
 
 make clean && ./build.sh && qemu-system-x86_64 -hda ./bin/os.bin

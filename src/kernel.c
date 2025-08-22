@@ -5,7 +5,8 @@
  */
 
 #include "kernel.h"
-#include "idt.h"
+#include "idt/idt.h"
+#include "io/io.h"
 
 #include <stdint.h>
 #include <stddef.h>
@@ -96,4 +97,6 @@ void kernel_main()
 
     // [TEST LECCION 12] - Llamada a interrupción 0
     //call_int_nr();
+
+    outb(0x60, 0xff);
 }

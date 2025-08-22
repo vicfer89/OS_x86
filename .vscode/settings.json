@@ -1,6 +1,8 @@
 {
     "files.associations": {
-        "kernel.h": "c"
+        "kernel.h": "c",
+        "idt.h": "c",
+        "io.h": "c"
     },
     "makefile.configureOnOpen": true
 }
