@@ -27,3 +27,6 @@ Pasos a seguir:
 5. Lanzamos QEMU, redirigiendo la salida ```target remote | qemu-system-x86_64 -S -gdb stdio -hda ./os.bin```
 6. Podemos continuar la ejecución por medio de ```c```, lanzar el depurador de asm por medio de ```layout asm``` e ir instrucción a instrucción por medio de ```stepi```
 para comprobar que se ha podido lanzar de forma correcta.
+
+## Generación de documentación:
+El proyecto incluye el fichero *Doxyfile* con información para doxygen. Para generarlo, necesita que Doxygen esté instalado mediante ```sudo apt-get install doxygen```, pudiendo generar documentación en html para el proyecto ejecutando ```doxygen``` en la carpeta raiz del mismo.
